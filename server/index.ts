@@ -12,7 +12,7 @@ import fs from 'fs';
 import https from 'https';
 
 // 应用版本和更新配置
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/12-ux-cloud/-/main/release/latest.json';
 
 // 知识库 & Agent 模块

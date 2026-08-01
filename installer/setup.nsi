@@ -9,7 +9,7 @@ Unicode true
 ;--------------------------------
 !define PRODUCT_NAME "一叶轻舟工作室"
 !define PRODUCT_NAME_EN "YiYeQingZhouStudio"
-!define PRODUCT_VERSION "1.0.0"
+!define PRODUCT_VERSION "1.0.1"
 !define PRODUCT_PUBLISHER "一叶轻舟工作室"
 !define PRODUCT_WEB_SITE "https://github.com/YiYeQingZhou/studio"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME_EN}"
