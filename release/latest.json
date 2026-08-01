@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
   "changelog": "🎉 首个正式版本发布\n\n✨ 新功能：\n- AI 辅助小说创作全流程（规划→写作→编辑→排版→发布）\n- 6 个 AI Agent 协同工作\n- 本地 SQLite 数据库存储\n- 支持 Ollama 本地 AI 模型\n- 自动更新检查\n\n📦 安装：运行 YiYeQingZhouStudio-Setup-1.0.0.exe",
-  "downloadUrl": "https://github.com/YiYeQingZhou/studio/releases/download/v1.0.0/YiYeQingZhouStudio-Setup-1.0.0.exe",
+  "downloadUrl": "https://github.com/12-ux-cloud/-/releases/download/v1.0.0/YiYeQingZhouStudio-Setup-1.0.0.exe",
   "publishedAt": "2026-08-01T12:00:00Z"
 }

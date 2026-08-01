@@ -13,7 +13,7 @@ import https from 'https';
 
 // 应用版本和更新配置
 const APP_VERSION = '1.0.0';
-const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/YiYeQingZhou/studio/main/release/latest.json';
+const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/12-ux-cloud/-/main/release/latest.json';
 
 // 知识库 & Agent 模块
 import { initKnowledgeBase, closeKnowledgeBase } from '../electron/shared/knowledge_base';
