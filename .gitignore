@@ -7,7 +7,6 @@ installer/nodejs/
 release/*.exe
 .test/
 staging/
-electron/
 electron-app/
 *.log
 .DS_Store

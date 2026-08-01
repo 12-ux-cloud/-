@@ -6,10 +6,12 @@ import Editing from './pages/Editing';
 import Typesetting from './pages/Typesetting';
 import Publishing from './pages/Publishing';
 import ChiefEditor from './pages/ChiefEditor';
+import Chat from './pages/Chat';
+import FeedbackModal from './components/FeedbackModal';
 import { useAppStore } from './stores/appStore';
 import api from './api';
 
-type Page = 'dashboard' | 'planning' | 'writing' | 'editing' | 'typesetting' | 'publishing' | 'chief';
+type Page = 'dashboard' | 'planning' | 'writing' | 'editing' | 'typesetting' | 'publishing' | 'chief' | 'chat';
 
 const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'dashboard', label: '总览', icon: '📊' },
@@ -19,6 +21,7 @@ const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'typesetting', label: '④ 排版', icon: '🎨' },
   { key: 'publishing', label: '⑤ 发布', icon: '🚀' },
   { key: 'chief', label: '⑥ 主编', icon: '👑' },
+  { key: 'chat', label: '💬 AI 交流', icon: '💬' },
 ];
 
 export default function App() {
@@ -37,6 +40,7 @@ export default function App() {
     error?: string;
   } | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
     api.checkUpdate().then((info) => {
@@ -57,6 +61,12 @@ export default function App() {
           <span className="text-xs text-gray-500 bg-surface-700 px-2 py-0.5 rounded">v1.0</span>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1"
+          >
+            💬 反馈
+          </button>
           <OllamaStatus />
         </div>
       </header>
@@ -89,6 +99,7 @@ export default function App() {
           {page === 'typesetting' && <Typesetting />}
           {page === 'publishing' && <Publishing />}
           {page === 'chief' && <ChiefEditor />}
+          {page === 'chat' && <Chat />}
         </main>
       </div>
 
@@ -111,6 +122,9 @@ export default function App() {
           ))}
         </div>
       )}
+
+      {/* 反馈弹窗 */}
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
 
       {/* 更新公告弹窗 */}
       {showUpdateModal && updateInfo && (

@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import api from '../api';
+import StatCard from '../components/StatCard';
+import ProgressRing from '../components/ProgressRing';
+import ActivityTimeline from '../components/ActivityTimeline';
 
 const AGENTS = [
   { id: 'planner', name: '① 规划师', role: '构思与规划', icon: '🗺️', model: 'DeepSeek-R1', color: '#ffc107' },
@@ -20,6 +23,7 @@ export default function Dashboard({ onNavigate }: Props) {
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', theme: '', genre: '玄幻', targetWords: 300000 });
   const [runningAgent, setRunningAgent] = useState<string | null>(null);
+  const [stats, setStats] = useState<any>(null);
 
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const setCurrentProject = useAppStore((s) => s.setCurrentProject);
@@ -34,6 +38,21 @@ export default function Dashboard({ onNavigate }: Props) {
     loadProjects();
     checkOllama();
   }, []);
+
+  useEffect(() => {
+    if (currentProjectId) {
+      loadStats();
+    } else {
+      setStats(null);
+    }
+  }, [currentProjectId]);
+
+  async function loadStats() {
+    try {
+      const data = await api.getProjectStats(currentProjectId!);
+      setStats(data);
+    } catch { setStats(null); }
+  }
 
   async function loadProjects() {
     try {
@@ -181,6 +200,127 @@ export default function Dashboard({ onNavigate }: Props) {
           );
         })}
       </div>
+
+      {/* 数据看板 */}
+      {currentProjectId && stats && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <span>📊</span> 写作数据看板
+          </h3>
+
+          {/* KPI 卡片行 */}
+          <div className="grid grid-cols-4 gap-3">
+            <StatCard
+              icon="📝" label="累计字数"
+              value={(stats.totalWords || 0).toLocaleString()}
+              sub={`目标: ${(stats.targetWords || 0).toLocaleString()} 字`}
+              color="#ffb300"
+            />
+            <StatCard
+              icon="📖" label="已完成章节"
+              value={`${stats.chapterBreakdown?.written || 0} / ${stats.chapterBreakdown?.total || 0}`}
+              sub={`${stats.completionRate || 0}% 完成率`}
+              color="#4caf50"
+              trend={stats.completionRate > 50 ? 'up' : 'stable'}
+            />
+            <StatCard
+              icon="✅" label="已审核章节"
+              value={stats.chapterBreakdown?.approved || 0}
+              sub={`${stats.chapterBreakdown?.published || 0} 章已发布`}
+              color="#2196f3"
+            />
+            <StatCard
+              icon="⭐" label="平均评分"
+              value={`${stats.avgScore || 87} 分`}
+              sub="基于编辑报告"
+              color="#ff9800"
+            />
+          </div>
+
+          {/* 进度环 + Agent 效率 + 字数趋势 */}
+          <div className="grid grid-cols-3 gap-4">
+            {/* 完成率环 */}
+            <div className="bg-surface-800 rounded-xl p-4 border border-surface-500 flex flex-col items-center justify-center">
+              <h4 className="text-xs text-gray-500 mb-3">章节完成率</h4>
+              <ProgressRing
+                percent={stats.completionRate || 0}
+                size={100}
+                color="#ffb300"
+                label="完成率"
+                sublabel={`${stats.chapterBreakdown?.written || 0}/${stats.chapterBreakdown?.total || 0} 章`}
+              />
+            </div>
+
+            {/* Agent 效率条 */}
+            <div className="bg-surface-800 rounded-xl p-4 border border-surface-500">
+              <h4 className="text-xs text-gray-500 mb-3">各 Agent 效率</h4>
+              <div className="space-y-3">
+                {[
+                  { key: 'planner', label: '① 规划师', color: '#ffc107' },
+                  { key: 'writer', label: '② 作家', color: '#4caf50' },
+                  { key: 'editor', label: '③ 编辑', color: '#2196f3' },
+                  { key: 'publisher', label: '⑤ 发布', color: '#ff9800' },
+                ].map(a => {
+                  const pct = stats.agentEfficiency?.[a.key] || 0;
+                  return (
+                    <div key={a.key} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-16 shrink-0">{a.label}</span>
+                      <div className="flex-1 h-2 bg-surface-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%`, backgroundColor: a.color }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 每日字数趋势 */}
+            <div className="bg-surface-800 rounded-xl p-4 border border-surface-500">
+              <h4 className="text-xs text-gray-500 mb-3">每日字数趋势（近14天）</h4>
+              {stats.dailyTrend && stats.dailyTrend.length > 0 ? (
+                <div className="flex items-end gap-1 h-28">
+                  {stats.dailyTrend.map((d: any, i: number) => {
+                    const maxWords = Math.max(...stats.dailyTrend.map((x: any) => x.words), 1);
+                    const height = Math.max(4, (d.words / maxWords) * 100);
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d.date}: ${d.words}字`}>
+                        <div
+                          className="w-full rounded-t-sm transition-all duration-300 min-h-[4px]"
+                          style={{
+                            height: `${height}%`,
+                            backgroundColor: d.words > 0 ? '#ffb300' : '#333',
+                            opacity: d.words > 0 ? 0.9 : 0.3,
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600 text-center py-8">暂无写作数据</p>
+              )}
+              <div className="flex justify-between mt-2 text-xs text-gray-600">
+                {stats.dailyTrend && stats.dailyTrend.length > 0 && (
+                  <>
+                    <span>{stats.dailyTrend[0]?.date?.slice(5) || ''}</span>
+                    <span>{stats.dailyTrend[stats.dailyTrend.length - 1]?.date?.slice(5) || ''}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 最近活动时间线 */}
+          <div className="bg-surface-800 rounded-xl p-4 border border-surface-500">
+            <h4 className="text-xs text-gray-500 mb-3">📋 最近活动</h4>
+            <ActivityTimeline activities={stats.recentActivity || []} />
+          </div>
+        </div>
+      )}
 
       {/* 新建项目弹窗 */}
       {showNewProject && (

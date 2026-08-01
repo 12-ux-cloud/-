@@ -9,7 +9,9 @@ export default function Planning() {
 
   const [idea, setIdea] = useState('');
   const [result, setResult] = useState<any>(null);
+  const [batchInfo, setBatchInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [nextBatchLoading, setNextBatchLoading] = useState(false);
   const [config, setConfig] = useState({
     genre: '玄幻',
     totalChapters: 30,
@@ -18,6 +20,9 @@ export default function Planning() {
     protagonistPersonality: '',
     forbiddenTropes: '',
     requiredElements: '',
+    batchMode: 'full' as 'full' | 'batch',
+    batchSize: 5,
+    hasSequel: false,
   });
 
   async function handleStart() {
@@ -40,16 +45,46 @@ export default function Planning() {
         protagonistPersonality: config.protagonistPersonality,
         forbiddenTropes: config.forbiddenTropes.split(',').filter(Boolean),
         requiredElements: config.requiredElements.split(',').filter(Boolean),
+        batchMode: config.batchMode,
+        batchSize: config.batchSize,
+        hasSequel: config.hasSequel ? 1 : 0,
+        batchStartChapter: 1,
       });
       const data = await api.startPlanning(currentProjectId, idea);
       setResult(data);
+      setBatchInfo(data.batchInfo || null);
       setAgentStatus('planner', 'done');
-      addNotification('success', '规划完成！大纲和人物设定已生成');
+      if (data.batchInfo) {
+        addNotification('success', `第 ${data.batchInfo.batchNumber} 批规划完成！第${data.batchInfo.startChapter}-${data.batchInfo.endChapter}章`);
+      } else {
+        addNotification('success', '规划完成！大纲和人物设定已生成');
+      }
     } catch (err: any) {
       addNotification('error', `规划失败: ${err.message}`);
       setAgentStatus('planner', 'error');
     }
     setLoading(false);
+  }
+
+  async function handleNextBatch() {
+    if (!currentProjectId) return;
+    setNextBatchLoading(true);
+    setAgentStatus('planner', 'running');
+    try {
+      const data = await api.planNextBatch(currentProjectId);
+      // 合并大纲
+      setResult((prev: any) => ({
+        ...prev,
+        outlines: [...(prev?.outlines || []), ...data.outlines],
+      }));
+      setBatchInfo(data.batchInfo);
+      setAgentStatus('planner', 'done');
+      addNotification('success', `第 ${data.batchInfo.batchNumber} 批完成！第${data.batchInfo.startChapter}-${data.batchInfo.endChapter}章`);
+    } catch (err: any) {
+      addNotification('error', `生成下一批失败: ${err.message}`);
+      setAgentStatus('planner', 'error');
+    }
+    setNextBatchLoading(false);
   }
 
   return (
@@ -97,10 +132,64 @@ export default function Planning() {
             <input className="input-field" placeholder="例如：双主角、反转结局" value={config.requiredElements} onChange={(e) => setConfig({ ...config, requiredElements: e.target.value })} />
           </div>
         </div>
-        <button onClick={handleStart} disabled={loading} className="btn-primary">
-          {loading ? '⏳ 规划中...' : '🚀 开始规划'}
-        </button>
+        {/* 分批生成 & 续集选项 */}
+        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-surface-600">
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">生成模式</label>
+            <select className="input-field" value={config.batchMode} onChange={(e) => setConfig({ ...config, batchMode: e.target.value as 'full' | 'batch' })}>
+              <option value="full">📚 一次全部生成</option>
+              <option value="batch">📝 分批生成</option>
+            </select>
+          </div>
+          {config.batchMode === 'batch' && (
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">每批章节数</label>
+              <select className="input-field" value={config.batchSize} onChange={(e) => setConfig({ ...config, batchSize: parseInt(e.target.value) || 5 })}>
+                {[3, 5, 10, 15, 20].map(n => <option key={n} value={n}>{n} 章/批</option>)}
+              </select>
+            </div>
+          )}
+          <div className="flex items-end gap-2 pb-2">
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={config.hasSequel} onChange={(e) => setConfig({ ...config, hasSequel: e.target.checked })} />
+              📖 本作品将有续集
+            </label>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={handleStart} disabled={loading} className="btn-primary">
+            {loading ? '⏳ 规划中...' : config.batchMode === 'batch' ? '🚀 开始生成第一批' : '🚀 开始规划'}
+          </button>
+          {batchInfo?.hasMore && (
+            <button onClick={handleNextBatch} disabled={nextBatchLoading} className="btn-secondary">
+              {nextBatchLoading ? '⏳ 生成中...' : `📝 生成下一批 (第${batchInfo.endChapter + 1}章起)`}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* 分批信息 */}
+      {batchInfo && (
+        <div className="agent-card border-primary-400/30 bg-primary-500/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-lg">📦</span>
+              <div>
+                <p className="text-sm font-medium">分批生成 · 第 {batchInfo.batchNumber} 批</p>
+                <p className="text-xs text-gray-400">章节范围：第 {batchInfo.startChapter} 章 ~ 第 {batchInfo.endChapter} 章</p>
+              </div>
+            </div>
+            {batchInfo.hasMore ? (
+              <span className="text-xs text-primary-400 bg-primary-500/10 px-2 py-1 rounded">还有更多批次</span>
+            ) : (
+              <span className="text-xs text-accent-green bg-accent-green/10 px-2 py-1 rounded">✅ 全部完成</span>
+            )}
+          </div>
+          {config.hasSequel && (
+            <p className="text-xs text-gray-500 mt-2">🔮 续集模式已开启：结局将预留伏笔和悬念</p>
+          )}
+        </div>
+      )}
 
       {/* 结果展示 */}
       {result && (

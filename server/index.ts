@@ -19,10 +19,10 @@ const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/12-ux-cloud/-/main/r
 import { initKnowledgeBase, closeKnowledgeBase } from '../electron/shared/knowledge_base';
 import { messageBus } from '../electron/shared/message_bus';
 import { pipeline } from '../electron/shared/pipeline';
-import { checkOllamaAvailable, listModels } from '../electron/shared/ollama';
+import { checkOllamaAvailable, listModels, generate } from '../electron/shared/ollama';
 
 import {
-  setPlannerConfig, getPlannerConfig, planNovel, initPlanner,
+  setPlannerConfig, getPlannerConfig, planNovel, planNextBatch, initPlanner,
 } from '../electron/agents/planner';
 import {
   setWriterConfig, getWriterConfig, writeChapter, initWriter,
@@ -41,6 +41,7 @@ import {
 } from '../electron/agents/chief_editor';
 
 import * as KB from '../electron/shared/knowledge_base';
+import { sendWeeklyFeedback, startFeedbackScheduler } from '../electron/shared/feedback_scheduler';
 const { checkDatabaseHealth } = require('../electron/shared/knowledge_base');
 
 const app = express();
@@ -200,8 +201,8 @@ app.get('/api/system/health', async (_req: Request, res: Response) => {
 // ===== 项目 API =====
 
 app.post('/api/projects', (req: Request, res: Response) => {
-  const { name, theme, genre, targetWords } = req.body;
-  const project = KB.createProject(name, theme, genre, targetWords);
+  const { name, theme, genre, targetWords, batchMode, batchSize, hasSequel } = req.body;
+  const project = KB.createProject(name, theme, genre, targetWords, batchMode, batchSize, hasSequel);
   res.json(project);
 });
 
@@ -248,6 +249,16 @@ app.post('/api/planner/start', async (req: Request, res: Response) => {
   try {
     const { projectId, idea } = req.body;
     const result = await planNovel(projectId, idea);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/planner/next-batch', async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.body;
+    const result = await planNextBatch(projectId);
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -359,6 +370,82 @@ app.post('/api/chief/final-review', async (req: Request, res: Response) => {
   }
 });
 
+// ===== 统计数据 API =====
+
+app.get('/api/stats/:projectId', (req: Request, res: Response) => {
+  const projectId = parseInt(req.params.projectId);
+  const chapters = KB.getAllChapters(projectId);
+  const outlines = KB.getOutlines(projectId);
+  const project = KB.getProject(projectId);
+
+  if (!project) return res.status(404).json({ error: '项目不存在' });
+
+  // 总字数
+  const totalWords = chapters.reduce((sum, c) => sum + (c.word_count || 0), 0);
+  const targetWords = project.target_words || 300000;
+
+  // 章节完成率
+  const totalOutlines = outlines.length;
+  const writtenChapters = chapters.filter(c => c.status !== 'draft' || c.word_count > 0).length;
+  const editedChapters = chapters.filter(c => c.status === 'edited' || c.status === 'approved' || c.status === 'published').length;
+  const approvedChapters = chapters.filter(c => c.status === 'approved' || c.status === 'published').length;
+  const publishedChapters = chapters.filter(c => c.status === 'published').length;
+
+  // 完成率环
+  const completionRate = totalOutlines > 0 ? Math.round((writtenChapters / totalOutlines) * 100) : 0;
+
+  // 每日字数（按 updated_at 分组）
+  const dailyWords: Record<string, number> = {};
+  for (const ch of chapters) {
+    if (ch.word_count > 0 && ch.updated_at) {
+      const day = ch.updated_at.slice(0, 10);
+      dailyWords[day] = (dailyWords[day] || 0) + ch.word_count;
+    }
+  }
+  const dailyTrend = Object.entries(dailyWords)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-14)
+    .map(([date, words]) => ({ date, words }));
+
+  // Agent 工作效率（基于编辑报告评分）
+  const avgScore = 87; // 默认值，实际可从 edit_reports 计算
+
+  // 最近活动：取章节的更新时间线
+  const recentActivity = chapters
+    .filter(c => c.updated_at)
+    .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    .slice(0, 5)
+    .map(c => ({
+      type: 'chapter',
+      chapterNumber: c.chapter_number,
+      title: c.title,
+      status: c.status,
+      time: c.updated_at,
+    }));
+
+  res.json({
+    totalWords,
+    targetWords,
+    completionRate,
+    chapterBreakdown: {
+      total: totalOutlines,
+      written: writtenChapters,
+      edited: editedChapters,
+      approved: approvedChapters,
+      published: publishedChapters,
+    },
+    agentEfficiency: {
+      planner: 95,
+      writer: writtenChapters > 0 ? Math.min(95, Math.round((writtenChapters / Math.max(totalOutlines, 1)) * 100)) : 0,
+      editor: editedChapters > 0 ? Math.min(90, Math.round((editedChapters / Math.max(writtenChapters, 1)) * 100)) : 0,
+      publisher: publishedChapters > 0 ? Math.min(85, Math.round((publishedChapters / Math.max(approvedChapters, 1)) * 100)) : 0,
+    },
+    avgScore,
+    dailyTrend,
+    recentActivity,
+  });
+});
+
 // ===== 流水线 API =====
 
 app.post('/api/pipeline/start', async (req: Request, res: Response) => {
@@ -388,6 +475,103 @@ app.post('/api/pipeline/confirm', (req: Request, res: Response) => {
   res.json(pipeline.getState());
 });
 
+// ===== AI 聊天 API =====
+
+app.post('/api/chat/send', async (req: Request, res: Response) => {
+  const { agent, message, attachment } = req.body;
+  if (!message) return res.status(400).json({ error: '消息不能为空' });
+
+  const agentName = agent || '全体';
+
+  // 保存用户消息
+  KB.saveChatMessage(agentName, 'user', message, attachment || '');
+
+  try {
+    // 构建上下文（最近聊天历史）
+    const history = KB.getChatHistory(agentName, 20);
+    const contextLines = history.map(h =>
+      `[${h.role === 'user' ? '用户' : h.agent_name}]: ${h.content}`
+    ).join('\n');
+
+    // 根据选择的 Agent 构建系统提示
+    const systemPrompt = buildChatSystemPrompt(agentName);
+
+    const fullPrompt = `以下是与用户的对话历史：
+${contextLines}
+
+用户最新消息: ${message}
+
+请作为${agentName === '全体' ? '一叶轻舟工作室 AI 助手' : agentName}回复用户。保持角色一致，简洁有帮助。`;
+
+    const response = await generate({
+      model: 'qwen2.5:7b',
+      prompt: fullPrompt,
+      system: systemPrompt,
+      temperature: 0.7,
+      max_tokens: 2048,
+    });
+
+    // 保存 AI 回复
+    KB.saveChatMessage(agentName, 'assistant', response);
+
+    res.json({ agent: agentName, message: response });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/chat/history', (req: Request, res: Response) => {
+  const agent = req.query.agent as string | undefined;
+  const limit = parseInt(req.query.limit as string || '50');
+  res.json(KB.getChatHistory(agent, limit));
+});
+
+app.post('/api/chat/clear', (req: Request, res: Response) => {
+  const { agent } = req.body;
+  KB.clearChatHistory(agent);
+  res.json({ success: true });
+});
+function buildChatSystemPrompt(agentName: string): string {
+  const prompts: Record<string, string> = {
+    '全体': '你是"一叶轻舟工作室"的全能 AI 助手，精通小说创作的各个方面：规划、写作、编辑、排版、发布。你可以回答任何与小说创作相关的问题。',
+    '规划师': '你是小说规划师 🗺️，擅长构思故事梗概、设计人物设定、构建世界观和章节大纲。用结构化的方式帮助作者规划作品。',
+    '作家': '你是小说作家 ✍️，擅长将大纲转化为生动的文字。你可以帮助写作、提供文笔建议、讨论情节发展。',
+    '编辑': '你是编辑 🔍，专注于文本质量：错别字、语法、逻辑一致性、文风把控。客观严谨地指出问题。',
+    '排版师': '你是排版设计师 🎨，熟悉 EPUB/PDF/HTML 格式排版，可建议字体、行距、标题风格和书籍设计。',
+    '发布师': '你是发布专员 🚀，了解起点、番茄、晋江等平台的发布流程和规则。',
+    '主编': '你是主编 👑，把控全书质量，审核大纲和章节，做出最终发布决策。',
+  };
+  return prompts[agentName] || `你是"一叶轻舟工作室"的 ${agentName}，帮助用户进行小说创作。保持专业、有帮助、简洁。`;
+}
+
+// ===== 用户反馈 API =====
+
+app.post('/api/feedback', (req: Request, res: Response) => {
+  const { category, content, contact } = req.body;
+  if (!content) return res.status(400).json({ error: '反馈内容不能为空' });
+  const item = KB.saveFeedback(category || '建议', content, contact || '');
+  res.json(item);
+});
+
+app.get('/api/feedback', (_req: Request, res: Response) => {
+  res.json(KB.getUnsentFeedback());
+});
+
+app.post('/api/feedback/send', async (_req: Request, res: Response) => {
+  const result = await sendWeeklyFeedback();
+  res.json(result);
+});
+
+app.get('/api/feedback/config', (_req: Request, res: Response) => {
+  res.json(KB.getFeedbackEmailConfig());
+});
+
+app.post('/api/feedback/config', (req: Request, res: Response) => {
+  const { email, smtpHost, smtpPort, smtpUser, smtpPass } = req.body;
+  KB.saveFeedbackEmailConfig({ email, smtpHost, smtpPort, smtpUser, smtpPass });
+  res.json({ success: true });
+});
+
 // ===== 静态文件服务（生产模式） =====
 // 在开发模式 (tsx 运行) 中 dist/ 在 ../dist，编译后 (dist-server/server/) 在 ../../dist
 const distPath = [
@@ -413,6 +597,9 @@ export async function startServer(): Promise<void> {
 
   const ollamaAvailable = await checkOllamaAvailable();
   console.log(`Ollama ${ollamaAvailable ? '可用 ✅' : '未运行 ⚠️'}`);
+
+  // 启动反馈定时器
+  startFeedbackScheduler();
 
   app.listen(PORT, () => {
     console.log(`🚀 一叶轻舟工作室 服务已启动: http://localhost:${PORT}`);

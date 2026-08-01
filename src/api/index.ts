@@ -49,8 +49,8 @@ const api = {
   getDbPath: () => get<{ appDataPath: string; databasePath: string }>('/api/system/db-path'),
 
   // 项目
-  createProject: (name: string, theme: string, genre: string, targetWords: number) =>
-    post('/api/projects', { name, theme, genre, targetWords }),
+  createProject: (name: string, theme: string, genre: string, targetWords: number, batchMode?: string, batchSize?: number, hasSequel?: number) =>
+    post('/api/projects', { name, theme, genre, targetWords, batchMode, batchSize, hasSequel }),
   listProjects: () => get('/api/projects'),
   getProject: (id: number) => get(`/api/projects/${id}`),
 
@@ -66,6 +66,8 @@ const api = {
   configPlanner: (cfg: any) => post('/api/planner/config', cfg),
   startPlanning: (projectId: number, idea: string) =>
     post('/api/planner/start', { projectId, idea }),
+  planNextBatch: (projectId: number) =>
+    post('/api/planner/next-batch', { projectId }),
 
   // ② 作家
   configWriter: (cfg: any) => post('/api/writer/config', cfg),
@@ -105,6 +107,24 @@ const api = {
   getPipelineState: () => get('/api/pipeline/state'),
   confirmStage: (approved: boolean, feedback?: string) =>
     post('/api/pipeline/confirm', { approved, feedback }),
+
+  // 统计数据
+  getProjectStats: (projectId: number) => get(`/api/stats/${projectId}`),
+
+  // 反馈
+  submitFeedback: (category: string, content: string, contact: string) =>
+    post('/api/feedback', { category, content, contact }),
+  getFeedbackConfig: () => get('/api/feedback/config'),
+  saveFeedbackConfig: (cfg: any) => post('/api/feedback/config', cfg),
+  sendFeedbackNow: () => post('/api/feedback/send'),
+
+  // 聊天
+  sendChatMessage: (agent: string, message: string, attachment?: string) =>
+    post('/api/chat/send', { agent, message, attachment }),
+  getChatHistory: (agent?: string, limit?: number) =>
+    get(`/api/chat/history?agent=${encodeURIComponent(agent || '全体')}&limit=${limit || 50}`),
+  clearChatHistory: (agent?: string) =>
+    post('/api/chat/clear', { agent }),
 };
 
 export default api;
