@@ -368,7 +368,7 @@
         signal: AbortSignal.timeout(5000)
       });
       const health = await res.json();
-      if (health.database === 'ok') {
+      if (health.database?.status === 'ok') {
         setCheckState(1, 'ok');
       } else {
         setCheckState(1, 'err', '异常');
