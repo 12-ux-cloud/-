@@ -155,14 +155,14 @@ app.get('/api/system/health', async (_req: Request, res: Response) => {
   // 服务状态
   results.server = { status: 'ok' };
 
-  // 数据库状态
+  // 数据库状态（返回详细信息帮助诊断）
   try {
     const dbOk = checkDatabaseHealth();
     results.database = dbOk
       ? { status: 'ok' }
       : { status: 'error', message: '数据库无响应' };
   } catch (e: any) {
-    results.database = { status: 'error', message: e.message };
+    results.database = { status: 'error', message: e.message || String(e) };
   }
 
   // Ollama 状态
