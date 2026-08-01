@@ -368,10 +368,14 @@
         signal: AbortSignal.timeout(5000)
       });
       const health = await res.json();
+      console.log('[Splash] Health response:', JSON.stringify(health));
       if (health.database?.status === 'ok') {
         setCheckState(1, 'ok');
       } else {
-        setCheckState(1, 'err', '异常');
+        const errMsg = health.database?.message || '异常';
+        setCheckState(1, 'err', errMsg);
+        showError('数据库: ' + errMsg);
+        showSkip();
       }
     } catch (e) {
       setCheckState(1, 'err', '无响应');
