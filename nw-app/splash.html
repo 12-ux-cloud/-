@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一叶轻舟工作室 — 启动中</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+      'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: #0a0a0a;
+    color: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-app-region: drag;
+  }
+
+  /* ===== Background particles ===== */
+  .particles {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  }
+  .particle {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: #ffb300;
+    border-radius: 50%;
+    opacity: 0;
+    animation: floatUp 4s infinite;
+  }
+  @keyframes floatUp {
+    0%   { opacity: 0; transform: translateY(100vh) scale(0); }
+    10%  { opacity: 0.8; }
+    90%  { opacity: 0.2; }
+    100% { opacity: 0; transform: translateY(-10vh) scale(1.5); }
+  }
+
+  /* ===== Main card ===== */
+  .main-card {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; align-items: center;
+    width: 480px; max-width: 90vw;
+    -webkit-app-region: no-drag;
+  }
+
+  /* ===== Logo area ===== */
+  .logo-container { position: relative; margin-bottom: 12px; }
+  .logo-ring {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: conic-gradient(#ffb300 0deg, #ffa000 90deg, #1a1a1a 180deg, #1a1a1a 360deg);
+    animation: logoSpin 2s linear infinite;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-ring::after {
+    content: '';
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: #0a0a0a;
+  }
+  .logo-icon {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 36px; line-height: 1;
+    animation: logoPulse 2s ease-in-out infinite;
+  }
+  @keyframes logoSpin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes logoPulse {
+    0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 0.7; transform: translate(-50%, -50%) scale(0.9); }
+  }
+
+  .app-title {
+    font-size: 22px; font-weight: 700; color: #fff;
+    letter-spacing: 2px; margin-bottom: 4px;
+  }
+  .app-subtitle {
+    font-size: 12px; color: #666; margin-bottom: 36px;
+    letter-spacing: 1px;
+  }
+
+  /* ===== Check items ===== */
+  .check-list { width: 100%; display: flex; flex-direction: column; gap: 2px; }
+
+  .check-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    background: #111;
+    transition: all 0.4s ease;
+  }
+  .check-item.checked-ok  { background: #0d1a0d; }
+  .check-item.checked-err { background: #1a0d0d; }
+
+  .check-icon {
+    width: 32px; height: 32px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+
+  /* Spinner */
+  .spinner {
+    width: 22px; height: 22px;
+    border: 2.5px solid #333;
+    border-top-color: #ffb300;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Success checkmark */
+  .checkmark {
+    width: 22px; height: 22px;
+    position: relative;
+    animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .checkmark::before {
+    content: ''; position: absolute;
+    left: 4px; bottom: 6px;
+    width: 10px; height: 5px;
+    border-left: 2.5px solid #4caf50;
+    border-bottom: 2.5px solid #4caf50;
+    transform: rotate(-45deg);
+  }
+  .checkmark::after {
+    content: ''; position: absolute;
+    right: 2px; bottom: 6px;
+    width: 16px; height: 5px;
+    border-left: 2.5px solid #4caf50;
+    border-bottom: 2.5px solid #4caf50;
+    transform: rotate(-45deg);
+  }
+
+  /* Error cross */
+  .crossmark {
+    width: 22px; height: 22px;
+    position: relative;
+    animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .crossmark::before, .crossmark::after {
+    content: ''; position: absolute;
+    top: 50%; left: 50%;
+    width: 18px; height: 2.5px;
+    background: #f44336;
+    border-radius: 2px;
+  }
+  .crossmark::before { transform: translate(-50%, -50%) rotate(45deg); }
+  .crossmark::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+
+  @keyframes popIn {
+    0%   { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .check-label { flex: 1; font-size: 14px; color: #999; transition: color 0.3s; }
+  .check-item.checked-ok  .check-label { color: #ccc; }
+  .check-item.checked-err .check-label { color: #f44336; }
+
+  .check-detail {
+    font-size: 11px; color: #555; min-width: 60px; text-align: right;
+    transition: color 0.3s;
+  }
+  .check-item.checked-ok  .check-detail { color: #4caf50; }
+  .check-item.checked-err .check-detail { color: #f44336; }
+
+  /* ===== Progress bar ===== */
+  .progress-wrap { width: 100%; margin-top: 28px; }
+  .progress-track {
+    width: 100%; height: 3px; background: #1a1a1a; border-radius: 2px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, #ffb300, #ffa000);
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+  .progress-text {
+    text-align: center; font-size: 11px; color: #555; margin-top: 8px;
+  }
+
+  /* ===== Skip button ===== */
+  .skip-btn {
+    margin-top: 24px; padding: 8px 28px;
+    background: transparent; color: #666;
+    border: 1px solid #333; border-radius: 6px;
+    font-size: 13px; cursor: pointer; letter-spacing: 1px;
+    transition: all 0.3s; opacity: 0; pointer-events: none;
+  }
+  .skip-btn.visible { opacity: 1; pointer-events: auto; }
+  .skip-btn:hover { color: #ccc; border-color: #555; }
+
+  /* ===== Fade out transition ===== */
+  .fade-out {
+    animation: fadeOut 0.5s ease forwards;
+  }
+  @keyframes fadeOut {
+    to { opacity: 0; transform: scale(0.95); }
+  }
+
+  /* ===== Error message ===== */
+  .error-msg {
+    margin-top: 16px; font-size: 12px; color: #f44336;
+    text-align: center; display: none;
+  }
+  .error-msg.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="particles" id="particles"></div>
+
+<div class="main-card" id="mainCard">
+  <!-- Logo -->
+  <div class="logo-container">
+    <div class="logo-ring"></div>
+    <div class="logo-icon">📖</div>
+  </div>
+  <div class="app-title">一叶轻舟工作室</div>
+  <div class="app-subtitle">AI 辅助小说创作</div>
+
+  <!-- Check items -->
+  <div class="check-list">
+    <div class="check-item" id="item-server">
+      <div class="check-icon"><div class="spinner" id="spin-server"></div></div>
+      <span class="check-label">启动服务</span>
+      <span class="check-detail" id="detail-server">等待中</span>
+    </div>
+    <div class="check-item" id="item-db">
+      <div class="check-icon"><div class="spinner" id="spin-db"></div></div>
+      <span class="check-label">数据库连接</span>
+      <span class="check-detail" id="detail-db">等待中</span>
+    </div>
+    <div class="check-item" id="item-ollama">
+      <div class="check-icon"><div class="spinner" id="spin-ollama"></div></div>
+      <span class="check-label">Ollama 连接</span>
+      <span class="check-detail" id="detail-ollama">等待中</span>
+    </div>
+    <div class="check-item" id="item-models">
+      <div class="check-icon"><div class="spinner" id="spin-models"></div></div>
+      <span class="check-label">AI 模型检测</span>
+      <span class="check-detail" id="detail-models">等待中</span>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-text" id="progressText">正在初始化...</div>
+  </div>
+
+  <!-- Error message -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Skip button -->
+  <button class="skip-btn" id="skipBtn" onclick="skipToApp()">跳过检测，直接进入</button>
+</div>
+
+<script>
+  const SERVER_PORT = 3001;
+  const SERVER_URL = `http://localhost:${SERVER_PORT}`;
+  const POLL_INTERVAL = 600;
+  const MAX_RETRIES = 30; // 18s max for server startup
+
+  const items = [
+    { id: 'server',  label: '启动服务',     okDetail: '就绪',     errDetail: '失败' },
+    { id: 'db',      label: '数据库连接',   okDetail: '已连接',   errDetail: '异常' },
+    { id: 'ollama',  label: 'Ollama 连接',  okDetail: '已连接',   errDetail: '未运行' },
+    { id: 'models',  label: 'AI 模型检测',  okDetail: '',         errDetail: '无模型' },
+  ];
+
+  let checkResults = [false, false, false, false];
+  let serverReady = false;
+  let skipTriggered = false;
+
+  // ===== Generate floating particles =====
+  (function createParticles() {
+    const container = document.getElementById('particles');
+    for (let i = 0; i < 25; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDelay = Math.random() * 4 + 's';
+      p.style.animationDuration = (3 + Math.random() * 5) + 's';
+      container.appendChild(p);
+    }
+  })();
+
+  // ===== UI helpers =====
+  function setCheckState(index, status, detail) {
+    const item = items[index];
+    const el = document.getElementById('item-' + item.id);
+    const spinner = document.getElementById('spin-' + item.id);
+    const detailEl = document.getElementById('detail-' + item.id);
+
+    // Replace spinner with icon
+    const iconDiv = el.querySelector('.check-icon');
+    if (status === 'ok') {
+      iconDiv.innerHTML = '<div class="checkmark"></div>';
+      el.className = 'check-item checked-ok';
+      detailEl.textContent = detail || item.okDetail;
+    } else if (status === 'err') {
+      iconDiv.innerHTML = '<div class="crossmark"></div>';
+      el.className = 'check-item checked-err';
+      detailEl.textContent = detail || item.errDetail;
+    }
+
+    checkResults[index] = (status === 'ok');
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const done = checkResults.filter(r => r).length;
+    const total = items.length;
+    const pct = Math.round((done / total) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressText').textContent =
+      `检测进度 ${done}/${total}`;
+
+    if (done === total && !skipTriggered) {
+      allChecksPassed();
+    }
+  }
+
+  function showSkip() {
+    document.getElementById('skipBtn').classList.add('visible');
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  // ===== Poll server readiness =====
+  async function waitForServer() {
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      try {
+        const res = await fetch(SERVER_URL + '/api/system/version', {
+          signal: AbortSignal.timeout(2000)
+        });
+        if (res.ok) {
+          serverReady = true;
+          setCheckState(0, 'ok');
+          return true;
+        }
+      } catch (e) { /* still starting */ }
+      await sleep(POLL_INTERVAL);
+    }
+    setCheckState(0, 'err', '无法启动');
+    showError('服务启动失败，请检查程序文件是否完整');
+    showSkip();
+    return false;
+  }
+
+  // ===== Run health checks =====
+  async function runHealthChecks() {
+    // 1. Database check
+    try {
+      const res = await fetch(SERVER_URL + '/api/system/health', {
+        signal: AbortSignal.timeout(5000)
+      });
+      const health = await res.json();
+      if (health.database === 'ok') {
+        setCheckState(1, 'ok');
+      } else {
+        setCheckState(1, 'err', '异常');
+      }
+    } catch (e) {
+      setCheckState(1, 'err', '无响应');
+    }
+
+    // 2. Ollama check
+    try {
+      const res = await fetch(SERVER_URL + '/api/system/ollama', {
+        signal: AbortSignal.timeout(5000)
+      });
+      const data = await res.json();
+      if (data.available) {
+        setCheckState(2, 'ok');
+      } else {
+        setCheckState(2, 'err', '未运行');
+        showError('Ollama 未运行，部分功能不可用。请确保 Ollama 已启动。');
+        showSkip();
+      }
+    } catch (e) {
+      setCheckState(2, 'err', '无响应');
+      showError('无法连接 Ollama 服务');
+      showSkip();
+    }
+
+    // 3. AI models check
+    try {
+      const res = await fetch(SERVER_URL + '/api/system/models', {
+        signal: AbortSignal.timeout(5000)
+      });
+      const models = await res.json();
+      if (models && models.length > 0) {
+        const names = Array.isArray(models)
+          ? models.map(m => typeof m === 'string' ? m : m.name).filter(Boolean)
+          : [];
+        if (names.length > 0) {
+          setCheckState(3, 'ok', names[0].length > 16
+            ? names[0].slice(0, 14) + '…'
+            : names[0]);
+        } else {
+          setCheckState(3, 'err', '无模型');
+          showError('未检测到 AI 模型，请通过 Ollama 下载模型');
+          showSkip();
+        }
+      } else {
+        setCheckState(3, 'err', '无模型');
+        showError('未检测到 AI 模型，请通过 Ollama 下载模型');
+        showSkip();
+      }
+    } catch (e) {
+      // Models check may fail if Ollama is down — that's OK
+      setCheckState(3, 'err', '跳过');
+    }
+  }
+
+  // ===== All checks passed =====
+  function allChecksPassed() {
+    document.getElementById('progressText').textContent = '✨ 一切就绪，即将进入…';
+    setTimeout(() => {
+      document.getElementById('mainCard').classList.add('fade-out');
+      setTimeout(() => {
+        window.location.href = SERVER_URL;
+      }, 400);
+    }, 600);
+  }
+
+  // ===== Skip to app =====
+  function skipToApp() {
+    if (skipTriggered) return;
+    skipTriggered = true;
+    document.getElementById('mainCard').classList.add('fade-out');
+    setTimeout(() => {
+      window.location.href = SERVER_URL;
+    }, 350);
+  }
+
+  // ===== Utilities =====
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ===== Main =====
+  (async function main() {
+    await sleep(300);
+
+    // 0. In NW.js, start Express server internally (no console window needed)
+    try {
+      if (typeof require !== 'undefined') {
+        const { startServer } = require('../dist-server/server/index.js');
+        startServer();
+        console.log('[Splash] Express server starting via NW.js...');
+      }
+    } catch (e) {
+      // Not in NW.js (dev mode) — launcher.js handles server startup externally
+      console.log('[Splash] External server mode, polling...');
+    }
+
+    // 1. Wait for server to be ready
+    const ok = await waitForServer();
+    if (!ok) return; // server failed — show error, let user retry or quit
+
+    // 2. Run health checks
+    await runHealthChecks();
+
+    // If some checks failed, show skip button (already shown by error handlers)
+    // If all passed, transition happens automatically from updateProgress()
+    const allOk = checkResults.every(r => r);
+    if (!allOk && !skipTriggered) {
+      showSkip();
+      document.getElementById('progressText').textContent = '部分检测未通过，可跳过继续';
+    }
+  })();
+</script>
+</body>
+</html>

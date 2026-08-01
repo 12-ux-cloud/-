@@ -1,0 +1,15 @@
+{
+  "name": "一叶轻舟工作室",
+  "main": "splash.html",
+  "window": {
+    "title": "一叶轻舟工作室",
+    "icon": "../build/icon.ico",
+    "width": 1400,
+    "height": 900,
+    "min_width": 1024,
+    "min_height": 700,
+    "frame": true,
+    "show": true,
+    "resizable": true
+  }
+}

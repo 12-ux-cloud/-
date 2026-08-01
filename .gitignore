@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-server/
+dist-electron/
+installer/staging/
+installer/nodejs/
+release/*.exe
+.test/
+staging/
+electron/
+electron-app/
+*.log
+.DS_Store
+Thumbs.db
