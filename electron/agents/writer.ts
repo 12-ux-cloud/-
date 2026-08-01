@@ -4,7 +4,7 @@
  * 产出: 逐章正文，保持人物一致性和伏笔
  */
 
-import { generate, generateStream } from '../shared/ollama';
+import { generate, generateStream } from '../shared/ai_provider';
 import { messageBus } from '../shared/message_bus';
 import * as KB from '../shared/knowledge_base';
 

@@ -688,6 +688,55 @@ export function saveFeedbackEmailConfig(cfg: { email: string; smtpHost: string; 
   saveDb();
 }
 
+// ===== AI 提供者配置 =====
+
+export interface AIProviderConfig {
+  provider: 'ollama' | 'openai' | 'server';
+  ollamaUrl: string;
+  openaiUrl: string;
+  openaiKey: string;
+  openaiModel: string;
+  temperature: number;
+  maxTokens: number;
+}
+
+export function getAIProviderConfig(): AIProviderConfig {
+  const config: Record<string, string> = {};
+  try {
+    const configs = queryAll<{ key: string; value: string }>('SELECT key, value FROM app_config');
+    for (const c of configs) {
+      config[c.key] = c.value;
+    }
+  } catch { /* table may not exist yet */ }
+  return {
+    provider: (config['ai_provider'] as AIProviderConfig['provider']) || 'ollama',
+    ollamaUrl: config['ai_ollama_url'] || 'http://localhost:11434',
+    openaiUrl: config['ai_openai_url'] || 'https://api.deepseek.com/v1',
+    openaiKey: config['ai_openai_key'] || '',
+    openaiModel: config['ai_openai_model'] || 'deepseek-chat',
+    temperature: parseFloat(config['ai_temperature'] || '0.7'),
+    maxTokens: parseInt(config['ai_max_tokens'] || '4096', 10),
+  };
+}
+
+export function saveAIProviderConfig(cfg: Partial<AIProviderConfig>): void {
+  try {
+    db.run('CREATE TABLE IF NOT EXISTS app_config (key TEXT PRIMARY KEY, value TEXT)');
+  } catch { /* ignore */ }
+  const pairs: [string, string][] = [];
+  if (cfg.provider !== undefined) pairs.push(['ai_provider', cfg.provider]);
+  if (cfg.ollamaUrl !== undefined) pairs.push(['ai_ollama_url', cfg.ollamaUrl]);
+  if (cfg.openaiUrl !== undefined) pairs.push(['ai_openai_url', cfg.openaiUrl]);
+  if (cfg.openaiKey !== undefined) pairs.push(['ai_openai_key', cfg.openaiKey]);
+  if (cfg.openaiModel !== undefined) pairs.push(['ai_openai_model', cfg.openaiModel]);
+  if (cfg.temperature !== undefined) pairs.push(['ai_temperature', String(cfg.temperature)]);
+  if (cfg.maxTokens !== undefined) pairs.push(['ai_max_tokens', String(cfg.maxTokens)]);
+  for (const [key, value] of pairs) {
+    db.run('INSERT OR REPLACE INTO app_config (key, value) VALUES (?, ?)', [key, value]);
+  }
+  saveDb();
+}
+
 export function closeKnowledgeBase(): void {
   if (db) {
     saveDb();

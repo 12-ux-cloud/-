@@ -125,6 +125,19 @@ const api = {
     get(`/api/chat/history?agent=${encodeURIComponent(agent || '全体')}&limit=${limit || 50}`),
   clearChatHistory: (agent?: string) =>
     post('/api/chat/clear', { agent }),
+
+  // AI 提供者配置
+  getAIConfig: () => get<{
+    provider: string;
+    ollamaUrl: string;
+    openaiUrl: string;
+    openaiKey: string;
+    openaiModel: string;
+    temperature: number;
+    maxTokens: number;
+  }>('/api/ai/config'),
+  saveAIConfig: (cfg: any) => post('/api/ai/config', cfg),
+  checkAIStatus: () => get<{ available: boolean; provider: string; modelName: string }>('/api/system/ai-status'),
 };
 
 export default api;

@@ -7,11 +7,12 @@ import Typesetting from './pages/Typesetting';
 import Publishing from './pages/Publishing';
 import ChiefEditor from './pages/ChiefEditor';
 import Chat from './pages/Chat';
+import Settings from './pages/Settings';
 import FeedbackModal from './components/FeedbackModal';
 import { useAppStore } from './stores/appStore';
 import api from './api';
 
-type Page = 'dashboard' | 'planning' | 'writing' | 'editing' | 'typesetting' | 'publishing' | 'chief' | 'chat';
+type Page = 'dashboard' | 'planning' | 'writing' | 'editing' | 'typesetting' | 'publishing' | 'chief' | 'chat' | 'settings';
 
 const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'dashboard', label: '总览', icon: '📊' },
@@ -22,12 +23,15 @@ const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'publishing', label: '⑤ 发布', icon: '🚀' },
   { key: 'chief', label: '⑥ 主编', icon: '👑' },
   { key: 'chat', label: '💬 AI 交流', icon: '💬' },
+  { key: 'settings', label: '⚙️ 设置', icon: '⚙️' },
 ];
 
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard');
   const notifications = useAppStore((s) => s.notifications);
   const removeNotification = useAppStore((s) => s.removeNotification);
+  const setOllamaAvailable = useAppStore((s) => s.setOllamaAvailable);
+  const setAIProvider = useAppStore((s) => s.setAIProvider);
 
   // 更新检查
   const [updateInfo, setUpdateInfo] = useState<{
@@ -43,6 +47,13 @@ export default function App() {
   const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
+    // 加载 AI 配置
+    api.getAIConfig().then((cfg) => {
+      setAIProvider(cfg.provider || 'ollama');
+    }).catch(() => {});
+    // 检查 AI 连接状态
+    api.checkAIStatus().then((r) => setOllamaAvailable(r.available)).catch(() => {});
+    // 检查更新
     api.checkUpdate().then((info) => {
       if (info.needsUpdate) {
         setUpdateInfo(info);
@@ -67,7 +78,7 @@ export default function App() {
           >
             💬 反馈
           </button>
-          <OllamaStatus />
+          <AIStatus />
         </div>
       </header>
 
@@ -100,6 +111,7 @@ export default function App() {
           {page === 'publishing' && <Publishing />}
           {page === 'chief' && <ChiefEditor />}
           {page === 'chat' && <Chat />}
+          {page === 'settings' && <Settings />}
         </main>
       </div>
 
@@ -188,13 +200,21 @@ export default function App() {
   );
 }
 
-function OllamaStatus() {
+function AIStatus() {
   const available = useAppStore((s) => s.ollamaAvailable);
+  const provider = useAppStore((s) => s.aiProvider);
+
+  const labels: Record<string, string> = {
+    ollama: available ? 'Ollama 已连接' : 'Ollama 未连接',
+    openai: available ? '云端 API 已连接' : '云端 API 未连接',
+    server: '内置云服务 未配置',
+  };
+
   return (
     <div className="flex items-center gap-2 text-xs">
       <div className={`w-2 h-2 rounded-full ${available ? 'bg-accent-green' : 'bg-accent-red'}`} />
       <span className="text-gray-400">
-        Ollama {available ? '已连接' : '未连接'}
+        {labels[provider] || labels.ollama}
       </span>
     </div>
   );

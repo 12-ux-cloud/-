@@ -4,7 +4,7 @@
  * 产出: EPUB / PDF / TXT 格式化文件
  */
 
-import { generate } from '../shared/ollama';
+import { generate } from '../shared/ai_provider';
 import { messageBus } from '../shared/message_bus';
 import * as KB from '../shared/knowledge_base';
 import * as path from 'path';

@@ -4,7 +4,7 @@
  * 产出: 校对报告 + 修改后版本
  */
 
-import { generate } from '../shared/ollama';
+import { generate } from '../shared/ai_provider';
 import { messageBus } from '../shared/message_bus';
 import * as KB from '../shared/knowledge_base';
 

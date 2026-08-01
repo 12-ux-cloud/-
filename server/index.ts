@@ -19,7 +19,7 @@ const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/12-ux-cloud/-/main/r
 import { initKnowledgeBase, closeKnowledgeBase } from '../electron/shared/knowledge_base';
 import { messageBus } from '../electron/shared/message_bus';
 import { pipeline } from '../electron/shared/pipeline';
-import { checkOllamaAvailable, listModels, generate } from '../electron/shared/ollama';
+import { checkProviderAvailable, checkOllamaAvailable, listModels, generate, getAIConfig, saveAIConfig } from '../electron/shared/ai_provider';
 
 import {
   setPlannerConfig, getPlannerConfig, planNovel, planNextBatch, initPlanner,
@@ -149,6 +149,23 @@ app.get('/api/system/models', async (_req: Request, res: Response) => {
   res.json(models);
 });
 
+// AI 提供者配置
+app.get('/api/ai/config', (_req: Request, res: Response) => {
+  res.json(getAIConfig());
+});
+
+app.post('/api/ai/config', (req: Request, res: Response) => {
+  saveAIConfig(req.body);
+  res.json({ success: true });
+});
+
+// AI 提供者状态（通用，兼容旧 /api/system/ollama）
+app.get('/api/system/ai-status', async (_req: Request, res: Response) => {
+  const config = getAIConfig();
+  const available = await checkProviderAvailable();
+  res.json({ available, provider: config.provider, modelName: config.provider === 'openai' ? config.openaiModel : '' });
+});
+
 // 系统健康检查（启动自检用）
 app.get('/api/system/health', async (_req: Request, res: Response) => {
   const results: Record<string, { status: string; message?: string }> = {};
@@ -168,12 +185,14 @@ app.get('/api/system/health', async (_req: Request, res: Response) => {
 
   // Ollama 状态
   try {
-    const ollamaAvailable = await checkOllamaAvailable();
-    results.ollama = ollamaAvailable
-      ? { status: 'ok' }
-      : { status: 'error', message: 'Ollama 未运行' };
+    const config = getAIConfig();
+    const aiAvailable = await checkProviderAvailable();
+    const aiLabel = config.provider === 'ollama' ? 'Ollama' : config.provider === 'openai' ? '云端API' : '内置云服务';
+    results.ai = aiAvailable
+      ? { status: 'ok', message: `${aiLabel} 正常` }
+      : { status: 'error', message: `${aiLabel} 不可用` };
   } catch (e: any) {
-    results.ollama = { status: 'error', message: e.message };
+    results.ai = { status: 'error', message: e.message };
   }
 
   // AI 模型
@@ -503,12 +522,14 @@ ${contextLines}
 
 请作为${agentName === '全体' ? '一叶轻舟工作室 AI 助手' : agentName}回复用户。保持角色一致，简洁有帮助。`;
 
+    const aiConfig = getAIConfig();
+    const chatModel = aiConfig.provider === 'ollama' ? 'qwen2.5:7b' : (aiConfig.openaiModel || 'deepseek-chat');
     const response = await generate({
-      model: 'qwen2.5:7b',
+      model: chatModel,
       prompt: fullPrompt,
       system: systemPrompt,
-      temperature: 0.7,
-      max_tokens: 2048,
+      temperature: aiConfig.temperature || 0.7,
+      max_tokens: aiConfig.maxTokens || 2048,
     });
 
     // 保存 AI 回复
@@ -595,8 +616,10 @@ export async function startServer(): Promise<void> {
   initPublisher();
   initChiefEditor();
 
-  const ollamaAvailable = await checkOllamaAvailable();
-  console.log(`Ollama ${ollamaAvailable ? '可用 ✅' : '未运行 ⚠️'}`);
+  const config = getAIConfig();
+  const aiAvailable = await checkProviderAvailable();
+  const aiLabel = config.provider === 'ollama' ? 'Ollama' : config.provider === 'openai' ? '云端API' : '内置云服务';
+  console.log(`${aiLabel} ${aiAvailable ? '可用 ✅' : '未运行 ⚠️'}`);
 
   // 启动反馈定时器
   startFeedbackScheduler();

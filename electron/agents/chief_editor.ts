@@ -12,7 +12,7 @@
  * - 一致性把关: 确保全书风格、人物、情节前后一致
  */
 
-import { generate } from '../shared/ollama';
+import { generate } from '../shared/ai_provider';
 import { messageBus } from '../shared/message_bus';
 import { pipeline } from '../shared/pipeline';
 import * as KB from '../shared/knowledge_base';

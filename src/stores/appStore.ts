@@ -8,9 +8,11 @@ interface AppState {
   currentProjectId: number | null;
   setCurrentProject: (id: number | null) => void;
 
-  // Ollama
+  // AI Provider
   ollamaAvailable: boolean;
   setOllamaAvailable: (v: boolean) => void;
+  aiProvider: string;
+  setAIProvider: (v: string) => void;
 
   // 流水线
   pipelineStatus: PipelineStatus;
@@ -34,6 +36,9 @@ export const useAppStore = create<AppState>((set) => ({
 
   ollamaAvailable: false,
   setOllamaAvailable: (v) => set({ ollamaAvailable: v }),
+
+  aiProvider: 'ollama',
+  setAIProvider: (v) => set({ aiProvider: v }),
 
   pipelineStatus: 'idle',
   pipelineMode: 'semi_auto',

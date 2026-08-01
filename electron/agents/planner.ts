@@ -4,7 +4,7 @@
  * 产出: 故事梗概 → 章节大纲 → 人物设定卡 → 世界观
  */
 
-import { generate, buildSystemPrompt } from '../shared/ollama';
+import { generate, buildSystemPrompt } from '../shared/ai_provider';
 import { messageBus } from '../shared/message_bus';
 import * as KB from '../shared/knowledge_base';
 
