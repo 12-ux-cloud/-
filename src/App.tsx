@@ -69,7 +69,7 @@ export default function App() {
         <div className="flex items-center gap-3">
           <span className="text-2xl">📖</span>
           <h1 className="text-lg font-bold text-white">一叶轻舟工作室</h1>
-          <span className="text-xs text-gray-500 bg-surface-700 px-2 py-0.5 rounded">v1.0</span>
+          <span className="text-xs text-gray-500 bg-surface-700 px-2 py-0.5 rounded">v1.2</span>
         </div>
         <div className="flex items-center gap-4">
           <button
