@@ -9,11 +9,12 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import https from 'https';
-
 // 应用版本和更新配置
 const APP_VERSION = '1.2.0';
-const UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/12-ux-cloud/-/main/release/latest.json';
+const UPDATE_CHECK_URLS = [
+  'https://gitee.com/a-small-boat-on-a-leaf/a-leaf-light-boat-studio/raw/main/release/latest.json',
+  'https://raw.githubusercontent.com/12-ux-cloud/-/main/release/latest.json',
+];
 
 // 知识库 & Agent 模块
 import { initKnowledgeBase, closeKnowledgeBase } from '../electron/shared/knowledge_base';
@@ -73,47 +74,28 @@ function compareVersions(a: string, b: string): number {
 }
 
 async function fetchUpdateInfo(): Promise<UpdateInfo> {
-  return new Promise((resolve) => {
-    const url = UPDATE_CHECK_URL;
-    https.get(url, { timeout: 10000 }, (resp) => {
-      let data = '';
-      resp.on('data', (chunk: string) => { data += chunk; });
-      resp.on('end', () => {
-        try {
-          const release = JSON.parse(data);
-          const latestVersion = (release.version || release.tag_name || '').replace(/^v/, '');
-          const needsUpdate = compareVersions(latestVersion, APP_VERSION) > 0;
-          resolve({
-            currentVersion: APP_VERSION,
-            latestVersion,
-            needsUpdate,
-            changelog: release.changelog || release.body || '',
-            downloadUrl: release.downloadUrl || release.download_url || '',
-            publishedAt: release.publishedAt || release.published_at || '',
-          });
-        } catch {
-          resolve({
-            currentVersion: APP_VERSION, latestVersion: '', needsUpdate: false,
-            changelog: '', downloadUrl: '', publishedAt: '',
-            error: '解析更新信息失败',
-          });
-        }
-      });
-    }).on('error', () => {
-      resolve({
-        currentVersion: APP_VERSION, latestVersion: '', needsUpdate: false,
-        changelog: '', downloadUrl: '', publishedAt: '',
-        error: '无法连接到更新服务器',
-      });
-    }).on('timeout', function(this: any) {
-      this.destroy();
-      resolve({
-        currentVersion: APP_VERSION, latestVersion: '', needsUpdate: false,
-        changelog: '', downloadUrl: '', publishedAt: '',
-        error: '检查更新超时',
-      });
-    });
-  });
+  for (const url of UPDATE_CHECK_URLS) {
+    try {
+      const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      const latestVersion = (data.version || data.tag_name || '').replace(/^v/, '');
+      const needsUpdate = compareVersions(latestVersion, APP_VERSION) > 0;
+      return {
+        currentVersion: APP_VERSION,
+        latestVersion,
+        needsUpdate,
+        changelog: data.changelog || data.body || '',
+        downloadUrl: data.downloadUrl || data.download_url || '',
+        publishedAt: data.publishedAt || data.published_at || '',
+      };
+    } catch { /* 尝试下一个源 */ }
+  }
+  return {
+    currentVersion: APP_VERSION, latestVersion: '', needsUpdate: false,
+    changelog: '', downloadUrl: '', publishedAt: '',
+    error: '无法连接到更新服务器',
+  };
 }
 
 // ===== 系统 API =====
