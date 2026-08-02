@@ -353,6 +353,11 @@ function createTables(): void {
       created_at TEXT DEFAULT (datetime('now', 'localtime')),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS app_config (
+      key TEXT PRIMARY KEY,
+      value TEXT DEFAULT ''
+    );
   `);
   saveDb();
 }
